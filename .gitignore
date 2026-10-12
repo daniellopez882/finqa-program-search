@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+
+# Tooling
+.venv/
+.ruff_cache/
+.pytest_cache/
+.hypothesis/
+.coverage
+htmlcov/
+
+# Data, models and run outputs live outside the repository (FINQA_SEARCH_DATA_DIR)
+data/
+models/
+runs/
+*.onnx
+*.parquet
+bench/results/smoke-*.json
+bench/out/
+
+# Editors and OS
+.idea/
+.vscode/
+*.swp
+.DS_Store
+Thumbs.db

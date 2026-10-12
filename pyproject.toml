@@ -1,0 +1,59 @@
+[project]
+name = "finqa-program-search"
+version = "0.1.0"
+description = "PUCT tree search over executable FinQA programs, guided by a LightGBM action prior and program ranker and grounded in retrieved report facts."
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "Daniel Lopez" }]
+requires-python = ">=3.12,<3.13"
+keywords = ["finqa", "mcts", "puct", "program-synthesis", "lightgbm", "numerical-reasoning", "bm25"]
+classifiers = [
+    "Programming Language :: Python :: 3.12",
+    "Operating System :: OS Independent",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Typing :: Typed",
+]
+dependencies = [
+    "lightgbm>=4.5",
+    "numpy>=2.0",
+    "onnxruntime>=1.19",
+    "pydantic>=2.7",
+    "tokenizers>=0.20",
+    "typer>=0.19",
+]
+
+[project.scripts]
+finqa-search = "finqa_search.cli:app"
+
+[dependency-groups]
+dev = [
+    "hypothesis>=6.100",
+    "pytest>=8.2",
+    "ruff>=0.6",
+    "sympy>=1.13",
+]
+
+[build-system]
+requires = ["uv_build>=0.8,<0.13"]
+build-backend = "uv_build"
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["src", "tests", "bench"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "SIM", "RUF", "N", "PT", "C4", "PIE", "PERF"]
+# N803/N806: X, L, F follow the usual matrix / count notation in numeric code.
+ignore = ["RUF001", "RUF002", "RUF003", "N803", "N806", "SIM905"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra -m 'not integration'"
+markers = [
+    "integration: needs the downloaded FinQA splits and/or the cross-encoder ONNX model",
+]
+
+[tool.uv.build-backend]
+module-name = "finqa_search"
