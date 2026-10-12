@@ -2,6 +2,8 @@
 
     uv run python bench/run.py              # everything, on the downloaded data
     uv run python bench/run.py --smoke      # tiny subsets, a few minutes, smoke-*.json
+    uv run python bench/run.py --dev-questions 200 --test-questions 500 --seed 0
+                                            # tune/test/latency on seeded samples
 
 Each stage writes ``bench/results/<stage>.json`` with the machine, date, git sha and
 command next to its metrics; ``--stages`` runs a subset (later stages read what earlier
@@ -20,10 +22,11 @@ from __future__ import annotations
 
 import argparse
 import json
+import random
 import sys
 import time
 from collections import Counter
-from dataclasses import asdict, dataclass, replace
+from dataclasses import asdict, dataclass, field, replace
 from pathlib import Path
 from typing import Any
 
@@ -78,6 +81,10 @@ class Plan:
     latency_questions: int
     latency_simulations: int
     latency_workers: int
+    # Seeded samples of dev/test for the search stages; retrieval and training see the
+    # whole splits either way.
+    sample: dict[str, int] = field(default_factory=dict)
+    seed: int = 0
 
 
 FULL = Plan(
@@ -140,6 +147,28 @@ class Bench:
             limit = self.plan.limits[name]
             self._splits[name] = examples[:limit] if limit else examples
         return self._splits[name]
+
+    def searched(self, name: str) -> list[Example]:
+        """The questions the search stages run on: the split, or a seeded sample of it."""
+        examples = self.split(name)
+        size = self.plan.sample.get(name)
+        if size is None or size >= len(examples):
+            return examples
+        keep = sorted(random.Random(self.plan.seed).sample(range(len(examples)), size))
+        return [examples[i] for i in keep]
+
+    def sample_note(self, name: str) -> dict[str, Any] | None:
+        size = self.plan.sample.get(name)
+        total = len(self.split(name))
+        if size is None or size >= total:
+            return None
+        return {
+            "questions": size,
+            "of": total,
+            "seed": self.plan.seed,
+            "rule": f"random.Random({self.plan.seed}).sample of the split's question "
+            "indices, kept in file order",
+        }
 
     def rankings(self, name: str) -> dict[str, Ranking]:
         return load_rankings(self.rankings_file(name))
@@ -219,7 +248,15 @@ class Bench:
                 )
                 save_rankings(path, ranked)
                 timings[name] = {"wall_seconds": time.perf_counter() - start}
-            timings.setdefault(name, {"wall_seconds": None, "reused_cache": True})
+            if cached:
+                # The cache's per-question seconds were measured by an earlier run.
+                timings[name] = {
+                    "wall_seconds": None,
+                    "per_question_p50": None,
+                    "per_question_p95": None,
+                    "reused_cache": True,
+                }
+                continue
             secs = sorted(r.seconds for r in self.rankings(name).values())
             timings[name]["per_question_p50"] = secs[len(secs) // 2]
             timings[name]["per_question_p95"] = secs[int(0.95 * (len(secs) - 1))]
@@ -256,7 +293,7 @@ class Bench:
         )
 
     def tune(self) -> None:
-        dev = self.split("dev")
+        dev = self.searched("dev")
         ranks = self.rankings("dev")
         setup = self.search_setup()
         sims = self.plan.tune_simulations
@@ -306,7 +343,12 @@ class Bench:
         chosen = {k: best[k] for k in ("c_puct", "fpu_reduction", "prior_weight")}
         self.write(
             "tune",
-            {"split": "dev", "simulations": sims, "questions": len(dev)},
+            {
+                "split": "dev",
+                "simulations": sims,
+                "questions": len(dev),
+                "sample": self.sample_note("dev"),
+            },
             {"grid": rows, "chosen": chosen},
         )
 
@@ -329,7 +371,7 @@ class Bench:
         )
 
     def test(self) -> None:
-        test = self.split("test")
+        test = self.searched("test")
         ranks = self.rankings("test")
         weight = self.chosen()["prior_weight"]
         methods = [Method("greedy")]
@@ -356,6 +398,7 @@ class Bench:
             {
                 "split": "test",
                 "questions": len(test),
+                "sample": self.sample_note("test"),
                 "workers": self.workers,
                 "tuned": self.chosen(),
                 "methods": [m.label for m in methods] + [uniform.label],
@@ -368,7 +411,7 @@ class Bench:
         )
 
     def latency(self) -> None:
-        test = self.split("test")[: self.plan.latency_questions]
+        test = self.searched("test")[: self.plan.latency_questions]
         ranks = self.rankings("test")
         sims = self.plan.latency_simulations
         results: dict[str, Any] = {}
@@ -382,7 +425,13 @@ class Bench:
             }
         self.write(
             "latency",
-            {"split": "test", "questions": len(test), "simulations": sims},
+            {
+                "split": "test",
+                "questions": len(test),
+                "rule": f"the first {len(test)} of the test questions the test stage ran",
+                "sample": self.sample_note("test"),
+                "simulations": sims,
+            },
             results,
         )
 
@@ -441,6 +490,10 @@ def main() -> None:
     parser.add_argument("--stages", default=",".join(STAGES))
     parser.add_argument("--workers", type=int, default=6)
     parser.add_argument("--smoke", action="store_true", help="tiny subsets, smoke-*.json")
+    parser.add_argument("--dev-questions", type=int, help="seeded dev sample for tuning")
+    parser.add_argument("--test-questions", type=int, help="seeded test sample")
+    parser.add_argument("--latency-questions", type=int, help="questions timed for latency")
+    parser.add_argument("--seed", type=int, default=0, help="seed of the dev/test samples")
     parser.add_argument(
         "--reuse-rankings",
         action="store_true",
@@ -448,7 +501,15 @@ def main() -> None:
     )
     args = parser.parse_args()
     command = "uv run python bench/run.py " + " ".join(sys.argv[1:])
-    bench = Bench(SMOKE if args.smoke else FULL, args.workers, args.reuse_rankings, command)
+    plan = SMOKE if args.smoke else FULL
+    sample = {"dev": args.dev_questions, "test": args.test_questions}
+    plan = replace(
+        plan,
+        sample={k: v for k, v in sample.items() if v is not None},
+        seed=args.seed,
+        latency_questions=args.latency_questions or plan.latency_questions,
+    )
+    bench = Bench(plan, args.workers, args.reuse_rankings, command)
     stages = [s.strip() for s in args.stages.split(",") if s.strip()]
     unknown = set(stages) - set(STAGES)
     if unknown:
