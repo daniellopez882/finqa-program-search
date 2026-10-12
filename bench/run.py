@@ -477,6 +477,8 @@ class Bench:
                 "questions": test["config"]["questions"],
                 "sample": test["config"].get("sample"),
                 "source": "per-question records of the test stage",
+                "interval": "Wilson score interval, 95% level",
+                "test": "exact two-sided sign test on questions where one method is right",
                 "test_git_sha": test["git_sha"],
                 "test_date": test["date"],
             },

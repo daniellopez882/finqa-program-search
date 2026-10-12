@@ -111,7 +111,8 @@ def reach_line(test: dict[str, Any]) -> str:
     first = next(iter(test["metrics"]["methods"].values()))
     return (
         f"The gold program is reachable in the search space for {pct(first['gold_reachable'])} "
-        f"of these questions; that is the ceiling of every row."
+        "of these questions; on the others a method can only be right through a different "
+        "program with the same value."
     )
 
 
