@@ -39,6 +39,14 @@ def test_glued_tokens_are_not_numbers() -> None:
     assert text_mentions("see the 10-k and note 2i", "text_0", "text") == []
 
 
+def test_days_of_the_month_are_dates_not_numbers() -> None:
+    ms = text_mentions("as of december 31 , 2009 , 31 stores were open", "text_0", "text")
+    assert [m.text for m in ms] == ["2009", "31"]
+    assert ms[1].position == 7
+    header = [["", "years ended dec . 31 2017", "2016"], ["cash", "$ 881.8", "$ 512.8"]]
+    assert [m.value for m in table_mentions(header) if m.row == 0] == []
+
+
 def test_thousands_separators_are_read() -> None:
     (m,) = text_mentions("total of 1,234,567 shares", "text_0", "text")
     assert m.value == 1234567.0

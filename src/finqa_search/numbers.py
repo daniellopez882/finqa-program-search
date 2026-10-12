@@ -33,6 +33,11 @@ UNIT_WORDS: dict[str, float] = {
     "trillion": 1e12,
 }
 
+MONTHS = frozenset(
+    "january february march april may june july august september october november december "
+    "jan feb mar apr jun jul aug sep sept oct nov dec".split()
+)
+
 CONTEXT_WINDOW = 6
 ANCHOR_WINDOW = 4
 
@@ -107,6 +112,14 @@ def _clean_number(token: str) -> tuple[float, str, bool] | None:
     return value, bare, pct
 
 
+def _after_month(tokens: list[str], i: int) -> bool:
+    """Whether token ``i`` follows a month name, also when FinQA split "dec." into "dec ."."""
+    j = i - 1
+    if j >= 1 and tokens[j] == ".":
+        j -= 1
+    return j >= 0 and tokens[j].lower().rstrip(".") in MONTHS
+
+
 def text_mentions(sentence: str, fact_id: str, kind: str, base_unit: float = 1.0) -> list[Mention]:
     """Numbers in one FinQA sentence (already split into space-separated tokens)."""
     tokens = sentence.split()
@@ -120,8 +133,12 @@ def text_mentions(sentence: str, fact_id: str, kind: str, base_unit: float = 1.0
         nxt = tokens[i + 1].lower() if i + 1 < len(tokens) else ""
         if nxt == "%":
             pct = True
-        # FinQA writes "2.05% ( 2.05 % )": the bracketed echo is the same mention again.
         prev = tokens[i - 1] if i else ""
+        # "december 31 , 2009": a day of the month is part of a date, not a quantity. Most
+        # FinQA pages have one, and gold programs almost never use it.
+        if bare.isdigit() and 1 <= value <= 31 and _after_month(tokens, i):
+            continue
+        # FinQA writes "2.05% ( 2.05 % )": the bracketed echo is the same mention again.
         if prev == "(" and nxt == "%" and (i - 2, bare) in seen:
             continue
         seen.add((i, bare))
