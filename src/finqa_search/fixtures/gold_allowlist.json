@@ -1,0 +1,4 @@
+{
+ "HOLX/2005/page_27.pdf-1": "table_sum is given two literal numbers instead of a row label and none; the recorded answer (1273628) does not match any reading of the program",
+ "HOLX/2005/page_27.pdf-2": "same annotation as HOLX/2005/page_27.pdf-1, extended by one step; the program does not parse"
+}
