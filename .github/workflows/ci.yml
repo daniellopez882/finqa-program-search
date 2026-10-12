@@ -1,0 +1,41 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+          enable-cache: true
+      - name: Install
+        run: uv sync --frozen
+      - name: Lint
+        run: uv run ruff check .
+      - name: Format
+        run: uv run ruff format --check .
+      - name: Tests (default suite, no downloads)
+        run: uv run pytest
+
+  image:
+    runs-on: ubuntu-latest
+    needs: checks
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build
+        run: docker build -t finqa-program-search:ci .
+      - name: Smoke run
+        run: |
+          docker run --rm finqa-program-search:ci --help
+          docker run --rm finqa-program-search:ci program "subtract(5829, 5735), divide(#0, 5735)"
+          docker run --rm finqa-program-search:ci demo --out /tmp/demo
+          docker run --rm --entrypoint id finqa-program-search:ci -u | grep -qx 10001
