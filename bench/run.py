@@ -14,6 +14,7 @@ ones left in the data directory: rankings, models, the tuned settings).
     train      action prior and program ranker, fitted on train
     tune       dev-only grid for MCTS and the answer-picking prior weight
     test       test split: greedy, beam, beam+ranker, depth-2+ranker, MCTS 16..1024
+    compare    paired comparison of the test methods with greedy, from the test records
     latency    MCTS-256 per-question seconds with 1 worker and 6 root-parallel workers
     trace      one annotated search tree for the README
 """
@@ -22,6 +23,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import random
 import sys
 import time
@@ -63,7 +65,7 @@ from finqa_search.viewer import mermaid
 from machine import stamp
 
 RESULTS = Path(__file__).resolve().parent / "results"
-STAGES = ("data", "retrieval", "train", "tune", "test", "latency", "trace")
+STAGES = ("data", "retrieval", "train", "tune", "test", "compare", "latency", "trace")
 
 
 @dataclass(frozen=True)
@@ -410,6 +412,51 @@ class Bench:
             },
         )
 
+    def compare(self) -> None:
+        """Each test method against greedy on the same questions, plus a 95% interval.
+
+        Reads the per-question records the test stage left in the data directory, so it
+        measures nothing new; it says which accuracy gaps a sample of this size resolves.
+        """
+        test = self.read("test")
+        if test is None:
+            raise SystemExit("compare needs the test stage's results")
+        base = "greedy"
+        correct: dict[str, dict[str, bool]] = {}
+        for label in test["metrics"]["methods"]:
+            lines = self.run_file(label).read_text(encoding="utf-8").splitlines()
+            correct[label] = {r["id"]: bool(r["exe_correct"]) for r in map(json.loads, lines)}
+        rows: dict[str, Any] = {}
+        for label, mine in correct.items():
+            theirs = correct[base]
+            if mine.keys() != theirs.keys():
+                raise SystemExit(f"{label} and {base} ran on different questions")
+            wins = sum(1 for q, ok in mine.items() if ok and not theirs[q])
+            losses = sum(1 for q, ok in mine.items() if theirs[q] and not ok)
+            right = sum(mine.values())
+            rows[label] = {
+                "n": len(mine),
+                "correct": right,
+                "execution_accuracy": right / len(mine),
+                "wilson95": wilson(right, len(mine)),
+                f"right_where_{base}_wrong": wins,
+                f"wrong_where_{base}_right": losses,
+                "sign_test_p": sign_test(wins, losses),
+            }
+        self.write(
+            "compare",
+            {
+                "split": "test",
+                "baseline": base,
+                "questions": test["config"]["questions"],
+                "sample": test["config"].get("sample"),
+                "source": "per-question records of the test stage",
+                "test_git_sha": test["git_sha"],
+                "test_date": test["date"],
+            },
+            rows,
+        )
+
     def latency(self) -> None:
         test = self.searched("test")[: self.plan.latency_questions]
         ranks = self.rankings("test")
@@ -465,6 +512,23 @@ class Bench:
             },
             {"record": record, "mermaid": sketch},
         )
+
+
+def wilson(successes: int, n: int, z: float = 1.959964) -> list[float]:
+    """95% Wilson score interval of a binomial proportion."""
+    p = successes / n
+    centre = (p + z * z / (2 * n)) / (1 + z * z / n)
+    half = z * math.sqrt(p * (1 - p) / n + z * z / (4 * n * n)) / (1 + z * z / n)
+    return [centre - half, centre + half]
+
+
+def sign_test(wins: int, losses: int) -> float:
+    """Two-sided exact sign test on the questions where exactly one method is right."""
+    n = wins + losses
+    if n == 0:
+        return 1.0
+    tail = sum(math.comb(n, i) for i in range(min(wins, losses) + 1)) / 2**n
+    return min(1.0, 2 * tail)
 
 
 def summarise_latency(records: list[dict[str, Any]]) -> dict[str, Any]:
