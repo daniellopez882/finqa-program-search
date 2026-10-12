@@ -155,15 +155,28 @@ def compare_table(doc: dict[str, Any]) -> str:
         f"wrong where {base} is right | sign test p |",
         "| --- | ---: | ---: | ---: | ---: | ---: |",
     ]
-    for label, r in doc["metrics"].items():
+    for label, r in doc["metrics"]["vs_greedy"].items():
         if label == base:
             continue
         lo, hi = r["wilson95"]
         rows.append(
             f"| {label} | {pct(r['execution_accuracy'])} | {pct(lo)} to {pct(hi)} | "
             f"{r[f'right_where_{base}_wrong']} | {r[f'wrong_where_{base}_right']} | "
-            f"{r['sign_test_p']:.2f} |"
+            f"{r['sign_test_p']:.2g} |"
         )
+    return "\n".join(rows)
+
+
+def ladder_table(doc: dict[str, Any]) -> str:
+    rows = [
+        "| simulations | chosen program changed | newly right | newly wrong |",
+        "| --- | ---: | ---: | ---: |",
+    ]
+    rows += [
+        f"| {step['from'].split('-')[1]} to {step['to'].split('-')[1]} | "
+        f"{step['programs_changed']} | {step['newly_right']} | {step['newly_wrong']} |"
+        for step in doc["metrics"]["mcts_ladder"]
+    ]
     return "\n".join(rows)
 
 
@@ -226,6 +239,7 @@ def main() -> None:
         sections.append(("measured", measured_on(test)))
     if doc := load(prefix, "compare"):
         sections.append(("compare", compare_table(doc)))
+        sections.append(("ladder", ladder_table(doc)))
     if doc := load(prefix, "retrieval"):
         sections.append(("retrieval", retrieval_table(doc)))
         sections.append(("retrieval timing", retrieval_timing(doc)))

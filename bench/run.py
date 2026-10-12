@@ -29,6 +29,7 @@ import sys
 import time
 from collections import Counter
 from dataclasses import asdict, dataclass, field, replace
+from itertools import pairwise
 from pathlib import Path
 from typing import Any
 
@@ -413,7 +414,8 @@ class Bench:
         )
 
     def compare(self) -> None:
-        """Each test method against greedy on the same questions, plus a 95% interval.
+        """Each test method against greedy on the same questions, plus a 95% interval,
+        and what each step up the MCTS simulation ladder changed.
 
         Reads the per-question records the test stage left in the data directory, so it
         measures nothing new; it says which accuracy gaps a sample of this size resolves.
@@ -423,9 +425,12 @@ class Bench:
             raise SystemExit("compare needs the test stage's results")
         base = "greedy"
         correct: dict[str, dict[str, bool]] = {}
+        programs: dict[str, dict[str, str | None]] = {}
         for label in test["metrics"]["methods"]:
             lines = self.run_file(label).read_text(encoding="utf-8").splitlines()
-            correct[label] = {r["id"]: bool(r["exe_correct"]) for r in map(json.loads, lines)}
+            records = [json.loads(line) for line in lines]
+            correct[label] = {r["id"]: bool(r["exe_correct"]) for r in records}
+            programs[label] = {r["id"]: r["program"] for r in records}
         rows: dict[str, Any] = {}
         for label, mine in correct.items():
             theirs = correct[base]
@@ -443,6 +448,27 @@ class Bench:
                 f"wrong_where_{base}_right": losses,
                 "sign_test_p": sign_test(wins, losses),
             }
+        ladder = sorted(
+            (int(label.split("-")[1]), label)
+            for label in correct
+            if label.startswith("mcts-") and " " not in label
+        )
+        steps = [
+            {
+                "from": low,
+                "to": high,
+                "programs_changed": sum(
+                    1 for q in programs[low] if programs[low][q] != programs[high][q]
+                ),
+                "newly_right": sum(
+                    1 for q in correct[low] if correct[high][q] and not correct[low][q]
+                ),
+                "newly_wrong": sum(
+                    1 for q in correct[low] if correct[low][q] and not correct[high][q]
+                ),
+            }
+            for (_, low), (_, high) in pairwise(ladder)
+        ]
         self.write(
             "compare",
             {
@@ -454,7 +480,7 @@ class Bench:
                 "test_git_sha": test["git_sha"],
                 "test_date": test["date"],
             },
-            rows,
+            {"vs_greedy": rows, "mcts_ladder": steps},
         )
 
     def latency(self) -> None:
