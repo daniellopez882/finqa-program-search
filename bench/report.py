@@ -30,12 +30,30 @@ def secs(x: float | None) -> str:
     return "n/a" if x is None else f"{x:.2f}"
 
 
+def os_name(platform_string: str) -> str:
+    """``Windows-10-10.0.19045-SP0`` -> ``Windows 10``; other systems are kept as they are."""
+    parts = platform_string.split("-")
+    return f"{parts[0]} {parts[1]}" if parts[0] == "Windows" and len(parts) > 1 else parts[0]
+
+
 def measured_on(doc: dict[str, Any]) -> str:
     m = doc["machine"]
     return (
         f"Measured on {m['cpu']} ({m['physical_cores']} cores, {round(m['ram_gb'])} GB RAM, "
-        f"{m['os']}, Python {m['python']}, CPU only) on {doc['date']}, commit "
-        f"`{doc['git_sha'][:10]}`."
+        f"{os_name(m['os'])}, Python {m['python']}, CPU only) on {doc['date']}, commit "
+        f"`{doc['git_sha'][:7]}`."
+    )
+
+
+def questions(doc: dict[str, Any]) -> str:
+    """Which questions a stage ran on, from its ``config``."""
+    config = doc["config"]
+    sample = config.get("sample")
+    if not sample:
+        return f"all {config['questions']:,} {config['split']} questions"
+    return (
+        f"a seeded random sample of {sample['questions']:,} of the {sample['of']:,} "
+        f"{config['split']} questions (seed {sample['seed']})"
     )
 
 
@@ -89,6 +107,14 @@ def method_table(test: dict[str, Any]) -> str:
     return "\n".join(rows)
 
 
+def reach_line(test: dict[str, Any]) -> str:
+    first = next(iter(test["metrics"]["methods"].values()))
+    return (
+        f"The gold program is reachable in the search space for {pct(first['gold_reachable'])} "
+        f"of these questions; that is the ceiling of every row."
+    )
+
+
 def retrieval_table(doc: dict[str, Any]) -> str:
     rows = ["| split | ranker | Recall@1 | Recall@3 | Recall@5 | all gold facts in top 3 |"]
     rows.append("| --- | --- | ---: | ---: | ---: | ---: |")
@@ -103,17 +129,59 @@ def retrieval_table(doc: dict[str, Any]) -> str:
     return "\n".join(rows)
 
 
+def retrieval_timing(doc: dict[str, Any]) -> str:
+    workers = doc["config"]["workers"]
+    rows = [
+        f"| split | questions | wall s ({workers} workers) | p50 s per question | "
+        "p95 s per question |",
+        "| --- | ---: | ---: | ---: | ---: |",
+    ]
+    recall = doc["metrics"]["recall"]
+    for split, t in doc["metrics"]["timing"].items():
+        if t.get("reused_cache"):
+            continue
+        n = recall.get(split, {}).get("questions_with_gold_facts")
+        rows.append(
+            f"| {split} | {'-' if n is None else f'{n:,}'} | {t['wall_seconds']:.0f} | "
+            f"{secs(t['per_question_p50'])} | {secs(t['per_question_p95'])} |"
+        )
+    return "\n".join(rows)
+
+
+def compare_table(doc: dict[str, Any]) -> str:
+    base = doc["config"]["baseline"]
+    rows = [
+        f"| method | execution acc. | 95% interval | right where {base} is wrong | "
+        f"wrong where {base} is right | sign test p |",
+        "| --- | ---: | ---: | ---: | ---: | ---: |",
+    ]
+    for label, r in doc["metrics"].items():
+        if label == base:
+            continue
+        lo, hi = r["wilson95"]
+        rows.append(
+            f"| {label} | {pct(r['execution_accuracy'])} | {pct(lo)} to {pct(hi)} | "
+            f"{r[f'right_where_{base}_wrong']} | {r[f'wrong_where_{base}_right']} | "
+            f"{r['sign_test_p']:.2f} |"
+        )
+    return "\n".join(rows)
+
+
 def latency_table(doc: dict[str, Any]) -> str:
     rows = [
-        "| workers | trees x simulations | p50 s | p95 s | execution acc. |",
-        "| --- | --- | ---: | ---: | ---: |",
+        "| workers | trees x simulations | p50 s | p95 s | mean s | execution acc. |",
+        "| --- | --- | ---: | ---: | ---: | ---: |",
     ]
     for label, r in doc["metrics"].items():
         per = r["simulations_per_tree"]
-        shape = f"{r['trees']} x {per[0]}" if len(set(per)) == 1 else f"{r['trees']} x {per}"
+        shape = (
+            f"{r['trees']} x {per[0]}"
+            if len(set(per)) == 1
+            else f"{r['trees']} x {min(per)}-{max(per)}"
+        )
         rows.append(
             f"| {label} | {shape} | {secs(r['seconds_p50'])} | {secs(r['seconds_p95'])} | "
-            f"{pct(r['execution_accuracy'])} |"
+            f"{secs(r['seconds_mean'])} | {pct(r['execution_accuracy'])} |"
         )
     return "\n".join(rows)
 
@@ -124,7 +192,26 @@ def tune_table(doc: dict[str, Any]) -> str:
         f"| {r['label']} | {pct(r['execution_accuracy'])} | {secs(r['seconds_p50'])} |"
         for r in doc["metrics"]["grid"]
     ]
+    chosen = doc["metrics"]["chosen"]
+    rows += [
+        "",
+        f"Chosen on dev: c_puct {chosen['c_puct']}, first-play urgency reduction "
+        f"{chosen['fpu_reduction']}, prior weight {chosen['prior_weight']}.",
+    ]
     return "\n".join(rows)
+
+
+def train_lines(doc: dict[str, Any]) -> str:
+    m = doc["metrics"]
+    s = m["seconds"]
+    return (
+        f"Trained on {m['train_questions']:,} training questions "
+        f"({m['gold_reachable']:,} with a reachable gold program) in {s['total'] / 60:.0f} min "
+        f"with {doc['config']['workers']} workers; the ranker saw {m['ranker_programs']:,} "
+        f"labelled programs ({pct(m['ranker_positive_rate'])} correct), "
+        f"{m['ranker_programs_from_search']:,} of them from the second, MCTS round. "
+        f"Model files: " + ", ".join(f"{k} {v:,} bytes" for k, v in m["model_bytes"].items()) + "."
+    )
 
 
 def main() -> None:
@@ -134,13 +221,22 @@ def main() -> None:
     sections: list[tuple[str, str]] = []
     if test := load(prefix, "test"):
         sections += [("curve", curve(test)), ("methods", method_table(test))]
+        sections.append(("questions", f"Test questions: {questions(test)}."))
+        sections.append(("reachable", reach_line(test)))
         sections.append(("measured", measured_on(test)))
+    if doc := load(prefix, "compare"):
+        sections.append(("compare", compare_table(doc)))
     if doc := load(prefix, "retrieval"):
         sections.append(("retrieval", retrieval_table(doc)))
+        sections.append(("retrieval timing", retrieval_timing(doc)))
     if doc := load(prefix, "latency"):
         sections.append(("latency", latency_table(doc)))
+        sections.append(("latency questions", f"Latency questions: {doc['config']['rule']}."))
     if doc := load(prefix, "tune"):
         sections.append(("tune", tune_table(doc)))
+        sections.append(("tune questions", f"Dev questions: {questions(doc)}."))
+    if doc := load(prefix, "train"):
+        sections.append(("train", train_lines(doc)))
     if doc := load(prefix, "trace"):
         sections.append(("trace", "```mermaid\n" + doc["metrics"]["mermaid"] + "\n```"))
     for name, text in sections:
