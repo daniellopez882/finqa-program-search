@@ -95,7 +95,7 @@ def program_features(
 
     out[:, 0] = lengths
     out[:, 1] = ops[:, 0]
-    out[:, 2] = np.where(lengths > 1, ops[:, min(1, S - 1)], -1)
+    out[:, 2] = np.where(lengths > 1, ops[:, min(1, S - 1)], np.nan)
     out[:, 3] = ops[rows, last]
     out[:, 4] = np.where(is_bool, np.nan, log_abs(final))
     out[:, 5] = np.where(is_bool, np.nan, final < 0)

@@ -9,7 +9,6 @@ come from a trained retriever and would leak into this one's evaluation.
 from __future__ import annotations
 
 import json
-from collections.abc import Iterator
 from pathlib import Path
 from typing import Literal
 
@@ -105,16 +104,6 @@ def split_path(split: Split, root: Path | None = None) -> Path:
 def load_split(split: Split, root: Path | None = None) -> list[Example]:
     with split_path(split, root).open(encoding="utf-8") as fh:
         return [from_raw(r) for r in json.load(fh)]
-
-
-def load_jsonl(path: Path) -> list[Example]:
-    """Examples stored one per line in this project's own (trimmed) format."""
-    with path.open(encoding="utf-8") as fh:
-        return [Example.model_validate_json(line) for line in fh if line.strip()]
-
-
-def iter_ids(examples: list[Example]) -> Iterator[str]:
-    yield from (e.id for e in examples)
 
 
 def report_of(example_id: str) -> str:

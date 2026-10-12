@@ -299,25 +299,24 @@ def execute(program: Program, table: list[list[str]]) -> Answer:
     return execute_steps(program, table)[-1]
 
 
-def round_answer(value: Answer) -> Answer:
-    return value if isinstance(value, bool) else round(value, 5)
+def gold_value(gold: float | str) -> Answer | None:
+    """A recorded ``exe_ans`` as the interpreter would produce it; None if it is neither."""
+    if isinstance(gold, str):
+        g = gold.strip().lower()
+        if g in ("yes", "no"):
+            return g == "yes"
+        return number_value(g)
+    return float(gold)
 
 
 def answers_match(pred: Answer | None, gold: float | str) -> bool:
     """FinQA execution accuracy: yes/no compared as words, numbers after rounding to 5 dp."""
-    if pred is None:
+    g = gold_value(gold)
+    if pred is None or g is None:
         return False
-    if isinstance(gold, str):
-        g = gold.strip().lower()
-        if g in ("yes", "no"):
-            return isinstance(pred, bool) and (pred == (g == "yes"))
-        gv = number_value(g)
-        if gv is None:
-            return False
-        gold = gv
-    if isinstance(pred, bool):
-        return False
-    return round(pred, 5) == round(float(gold), 5)
+    if isinstance(g, bool) or isinstance(pred, bool):
+        return isinstance(g, bool) and isinstance(pred, bool) and pred == g
+    return round(pred, 5) == round(g, 5)
 
 
 # Canonical form -----------------------------------------------------------------------
@@ -407,7 +406,7 @@ def equivalent(p: Program, q: Program, trials: int = 3, seed: int = 0) -> bool:
     at random points of a prime field: two different rational functions agree at a random
     point with probability at most degree / 2^61 (Schwartz-Zippel), so a few trials decide
     equivalence for programs of FinQA's size. The official FinQA script asks sympy the
-    same question; ``tests/test_equivalence.py`` checks that the two agree.
+    same question; ``tests/test_canonical.py`` checks that the two agree.
     """
     rng = random.Random(seed)
     for _ in range(trials):

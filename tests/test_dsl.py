@@ -18,7 +18,6 @@ from finqa_search.dsl import (
     execute_steps,
     number_value,
     parse_program,
-    round_answer,
     table_row_values,
 )
 
@@ -178,11 +177,6 @@ def test_answers_match_uses_five_decimals_and_yes_no_words(
     pred: float | bool | None, gold: float | str, ok: bool
 ) -> None:
     assert answers_match(pred, gold) is ok
-
-
-def test_round_answer_keeps_booleans() -> None:
-    assert round_answer(True) is True
-    assert round_answer(1.234567891) == 1.23457
 
 
 def test_canonical_form_ignores_argument_order_of_commutative_ops() -> None:
