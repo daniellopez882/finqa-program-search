@@ -1,0 +1,82 @@
+{
+ "stage": "retrieval",
+ "date": "2026-10-13",
+ "git_sha": "06ab0d02b6611e45c2632ac8371a85d380785612",
+ "command": "uv run python bench/run.py --workers 6 --reuse-rankings --stages data,retrieval",
+ "machine": {
+  "cpu": "Intel(R) Core(TM) i5-8500 CPU @ 3.00GHz",
+  "physical_cores": 6,
+  "logical_cpus": 6,
+  "ram_gb": 11.9,
+  "os": "Windows-10-10.0.19045-SP0",
+  "python": "3.12.14",
+  "packages": {
+   "numpy": "2.5.4",
+   "lightgbm": "4.7.0",
+   "onnxruntime": "1.31.0",
+   "tokenizers": "0.23.3",
+   "pydantic": "2.14.0",
+   "typer": "0.27.3"
+  },
+  "accelerator": "none (CPU only)"
+ },
+ "config": {
+  "pool": 12,
+  "bm25_weight": 0.3,
+  "use_cross_encoder": true,
+  "workers": 6,
+  "idf_documents": 58879
+ },
+ "metrics": {
+  "recall": {
+   "dev": {
+    "questions_with_gold_facts": 883,
+    "hybrid_recall@1": 0.5135158820039907,
+    "hybrid_all_gold@1": 0.35334088335220837,
+    "hybrid_recall@3": 0.7560373186647252,
+    "hybrid_all_gold@3": 0.6172140430351076,
+    "hybrid_recall@5": 0.8473156986463894,
+    "hybrid_all_gold@5": 0.7429218573046432,
+    "bm25_recall@1": 0.4985102194898344,
+    "bm25_all_gold@1": 0.3465458663646659,
+    "bm25_recall@3": 0.7403238418810332,
+    "bm25_all_gold@3": 0.5979614949037373,
+    "bm25_recall@5": 0.8301394057056571,
+    "bm25_all_gold@5": 0.72480181200453
+   },
+   "test": {
+    "questions_with_gold_facts": 1147,
+    "hybrid_recall@1": 0.5389639639639641,
+    "hybrid_all_gold@1": 0.3905841325196164,
+    "hybrid_recall@3": 0.7486777099680325,
+    "hybrid_all_gold@3": 0.6059285091543156,
+    "hybrid_recall@5": 0.8227550130775938,
+    "hybrid_all_gold@5": 0.7105492589363557,
+    "bm25_recall@1": 0.4986413833188027,
+    "bm25_all_gold@1": 0.3644289450741064,
+    "bm25_recall@3": 0.7242371403661727,
+    "bm25_all_gold@3": 0.5823888404533566,
+    "bm25_recall@5": 0.8133464109270561,
+    "bm25_all_gold@5": 0.6948561464690497
+   }
+  },
+  "timing": {
+   "train": {
+    "wall_seconds": null,
+    "per_question_p50": null,
+    "per_question_p95": null,
+    "reused_cache": true
+   },
+   "dev": {
+    "wall_seconds": 94.608367000008,
+    "per_question_p50": 0.5198435000493191,
+    "per_question_p95": 0.9032861000159755
+   },
+   "test": {
+    "wall_seconds": 122.87778970005456,
+    "per_question_p50": 0.5458828000118956,
+    "per_question_p95": 0.9331628999789245
+   }
+  }
+ }
+}

@@ -1,0 +1,83 @@
+{
+ "stage": "data",
+ "date": "2026-10-13",
+ "git_sha": "06ab0d02b6611e45c2632ac8371a85d380785612",
+ "command": "uv run python bench/run.py --workers 6 --reuse-rankings --stages data,retrieval",
+ "machine": {
+  "cpu": "Intel(R) Core(TM) i5-8500 CPU @ 3.00GHz",
+  "physical_cores": 6,
+  "logical_cpus": 6,
+  "ram_gb": 11.9,
+  "os": "Windows-10-10.0.19045-SP0",
+  "python": "3.12.14",
+  "packages": {
+   "numpy": "2.5.4",
+   "lightgbm": "4.7.0",
+   "onnxruntime": "1.31.0",
+   "tokenizers": "0.23.3",
+   "pydantic": "2.14.0",
+   "typer": "0.27.3"
+  },
+  "accelerator": "none (CPU only)"
+ },
+ "config": {},
+ "metrics": {
+  "sha256_verified": true,
+  "questions": {
+   "train": 6251,
+   "dev": 883,
+   "test": 1147
+  },
+  "questions_total": 8281,
+  "report_pages": {
+   "train": 2110,
+   "dev": 299,
+   "test": 380
+  },
+  "gold_programs": {
+   "train": {
+    "checked": 6251,
+    "reproduced": 6249,
+    "allowlisted": 2,
+    "unexpected_failures": 0,
+    "allowlisted_but_passing": []
+   },
+   "dev": {
+    "checked": 883,
+    "reproduced": 883,
+    "allowlisted": 0,
+    "unexpected_failures": 0,
+    "allowlisted_but_passing": []
+   },
+   "test": {
+    "checked": 1147,
+    "reproduced": 1147,
+    "allowlisted": 0,
+    "unexpected_failures": 0,
+    "allowlisted_but_passing": []
+   }
+  },
+  "leakage": {
+   "train/dev ids": 0,
+   "train/dev pages": 0,
+   "train/dev same page and question": 0,
+   "train/test ids": 0,
+   "train/test pages": 0,
+   "train/test same page and question": 0,
+   "dev/test ids": 0,
+   "dev/test pages": 0,
+   "dev/test same page and question": 0
+  },
+  "program_steps": {
+   "0": 2,
+   "1": 4894,
+   "2": 2708,
+   "3": 428,
+   "4": 118,
+   "5": 125,
+   "6": 6
+  },
+  "share_within_4_steps": 0.9839391377852916,
+  "seconds": 1.5401264000101946
+ }
+}

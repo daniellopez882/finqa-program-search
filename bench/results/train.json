@@ -1,0 +1,84 @@
+{
+ "stage": "train",
+ "date": "2026-10-13",
+ "git_sha": "06ab0d02b6611e45c2632ac8371a85d380785612",
+ "command": "uv run python bench/run.py --workers 6 --stages train",
+ "machine": {
+  "cpu": "Intel(R) Core(TM) i5-8500 CPU @ 3.00GHz",
+  "physical_cores": 6,
+  "logical_cpus": 6,
+  "ram_gb": 11.9,
+  "os": "Windows-10-10.0.19045-SP0",
+  "python": "3.12.14",
+  "packages": {
+   "numpy": "2.5.4",
+   "lightgbm": "4.7.0",
+   "onnxruntime": "1.31.0",
+   "tokenizers": "0.23.3",
+   "pydantic": "2.14.0",
+   "typer": "0.27.3"
+  },
+  "accelerator": "none (CPU only)"
+ },
+ "config": {
+  "context": {
+   "top_facts": 5,
+   "max_numbers": 18,
+   "constants": [
+    "const_100",
+    "const_1000",
+    "const_1000000",
+    "const_1",
+    "const_m1",
+    "const_2",
+    "const_3",
+    "const_4",
+    "const_5"
+   ],
+   "max_rows": 6
+  },
+  "max_steps": 4,
+  "prior": {
+   "negatives": 48,
+   "objective": "lambdarank",
+   "num_leaves": 63,
+   "rounds": 200,
+   "learning_rate": 0.05,
+   "min_data_in_leaf": 40,
+   "feature_fraction": 0.8,
+   "seed": 0
+  },
+  "ranker": {
+   "folds": 3,
+   "beam": 8,
+   "samples": 16,
+   "uniform": 48,
+   "num_leaves": 63,
+   "rounds": 300,
+   "learning_rate": 0.05,
+   "min_data_in_leaf": 40,
+   "seed": 0,
+   "search_simulations": 64
+  },
+  "workers": 6
+ },
+ "metrics": {
+  "train_questions": 6251,
+  "gold_reachable": 4898,
+  "ranker_programs": 912912,
+  "ranker_programs_from_search": 472521,
+  "ranker_positive_rate": 0.0159007659007659,
+  "seconds": {
+   "prior_rows": 14.781944199989084,
+   "prior_fit": 38.78955479996512,
+   "ranker_candidates": 1280.370684100024,
+   "ranker_search_candidates": 1099.4122822000063,
+   "ranker_fit": 19.626509800029453,
+   "total": 2453.7809934999677
+  },
+  "model_bytes": {
+   "prior.txt": 1421331,
+   "ranker.txt": 2096814
+  }
+ }
+}
