@@ -1,5 +1,7 @@
 # finqa-program-search
 
+[![ci](https://github.com/daniellopez882/finqa-program-search/actions/workflows/ci.yml/badge.svg)](https://github.com/daniellopez882/finqa-program-search/actions/workflows/ci.yml) ![python](https://img.shields.io/badge/python-3.12-3776AB?logo=python&logoColor=white) ![licence](https://img.shields.io/badge/licence-MIT-green)
+
 Answers numerical questions about 10-K report pages by searching over small executable
 programs (`subtract(5829, 5735), divide(#0, 5735)`) with PUCT Monte Carlo tree search.
 A LightGBM action prior proposes the next step, a LightGBM program ranker judges finished
